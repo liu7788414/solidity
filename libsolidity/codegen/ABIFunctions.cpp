@@ -187,6 +187,9 @@ string ABIFunctions::requestedFunctions()
 
 string ABIFunctions::cleanupFunction(Type const& _type, bool _revertOnFailure)
 {
+	if (_type.category() == Type::Category::Address)
+		return cleanupFunction(IntegerType(160), _revertOnFailure);
+
 	string functionName = string("cleanup_") + (_revertOnFailure ? "revert_" : "assert_") + _type.identifier();
 	return createFunction(functionName, [&]() {
 		Whiskers templ(R"(
@@ -197,6 +200,9 @@ string ABIFunctions::cleanupFunction(Type const& _type, bool _revertOnFailure)
 		templ("functionName", functionName);
 		switch (_type.category())
 		{
+		case Type::Category::Address:
+			solAssert(false, "");
+			break;
 		case Type::Category::Integer:
 		{
 			IntegerType const& type = dynamic_cast<IntegerType const&>(_type);
@@ -239,7 +245,7 @@ string ABIFunctions::cleanupFunction(Type const& _type, bool _revertOnFailure)
 			break;
 		}
 		case Type::Category::Contract:
-			templ("body", "cleaned := " + cleanupFunction(IntegerType(160, IntegerType::Modifier::Address)) + "(value)");
+			templ("body", "cleaned := " + cleanupFunction(AddressType()) + "(value)");
 			break;
 		case Type::Category::Enum:
 		{
@@ -267,6 +273,10 @@ string ABIFunctions::cleanupFunction(Type const& _type, bool _revertOnFailure)
 
 string ABIFunctions::conversionFunction(Type const& _from, Type const& _to)
 {
+	if (_from.category() == Type::Category::Address)
+		return conversionFunction(IntegerType(160), _to);
+	if (_to.category() == Type::Category::Address)
+		return conversionFunction(_from, IntegerType(160));
 	string functionName =
 		"convert_" +
 		_from.identifier() +
@@ -282,8 +292,12 @@ string ABIFunctions::conversionFunction(Type const& _from, Type const& _to)
 		string body;
 		auto toCategory = _to.category();
 		auto fromCategory = _from.category();
+		solAssert(toCategory != Type::Category::Address, "");
 		switch (fromCategory)
 		{
+		case Type::Category::Address:
+			solAssert(false, "");
+			break;
 		case Type::Category::Integer:
 		case Type::Category::RationalNumber:
 		case Type::Category::Contract:
@@ -323,7 +337,7 @@ string ABIFunctions::conversionFunction(Type const& _from, Type const& _to)
 					toCategory == Type::Category::Integer ||
 					toCategory == Type::Category::Contract,
 				"");
-				IntegerType const addressType(160, IntegerType::Modifier::Address);
+				IntegerType const addressType(160);
 				IntegerType const& to =
 					toCategory == Type::Category::Integer ?
 					dynamic_cast<IntegerType const&>(_to) :

@@ -635,6 +635,12 @@ void CompilerUtils::convertType(
 	Type::Category stackTypeCategory = _typeOnStack.category();
 	Type::Category targetTypeCategory = _targetType.category();
 
+	if (targetTypeCategory == Type::Category::Address)
+	{
+		convertType(_typeOnStack, IntegerType(160), _cleanupNeeded, _chopSignBits, _asPartOfArgumentDecoding);
+		return;
+	}
+
 	bool enumOverflowCheckPending = (targetTypeCategory == Type::Category::Enum || stackTypeCategory == Type::Category::Enum);
 	bool chopSignBitsPending = _chopSignBits && targetTypeCategory == Type::Category::Integer;
 	if (chopSignBitsPending)
@@ -645,6 +651,11 @@ void CompilerUtils::convertType(
 
 	switch (stackTypeCategory)
 	{
+	case Type::Category::Address:
+	{
+		convertType(IntegerType(160), _targetType, _cleanupNeeded, _chopSignBits, _asPartOfArgumentDecoding);
+		return;
+	}
 	case Type::Category::FixedBytes:
 	{
 		FixedBytesType const& typeOnStack = dynamic_cast<FixedBytesType const&>(_typeOnStack);
@@ -734,7 +745,7 @@ void CompilerUtils::convertType(
 		else
 		{
 			solAssert(targetTypeCategory == Type::Category::Integer || targetTypeCategory == Type::Category::Contract, "");
-			IntegerType addressType(160, IntegerType::Modifier::Address);
+			IntegerType addressType(160);
 			IntegerType const& targetType = targetTypeCategory == Type::Category::Integer
 				? dynamic_cast<IntegerType const&>(_targetType) : addressType;
 			if (stackTypeCategory == Type::Category::RationalNumber)
@@ -998,8 +1009,6 @@ void CompilerUtils::convertType(
 	default:
 		if (stackTypeCategory == Type::Category::Function && targetTypeCategory == Type::Category::Integer)
 		{
-			IntegerType const& targetType = dynamic_cast<IntegerType const&>(_targetType);
-			solAssert(targetType.isAddress(), "Function type can only be converted to address.");
 			FunctionType const& typeOnStack = dynamic_cast<FunctionType const&>(_typeOnStack);
 			solAssert(typeOnStack.kind() == FunctionType::Kind::External, "Only external function type can be converted.");
 
