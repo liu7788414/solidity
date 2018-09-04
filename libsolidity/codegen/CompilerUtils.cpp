@@ -635,12 +635,6 @@ void CompilerUtils::convertType(
 	Type::Category stackTypeCategory = _typeOnStack.category();
 	Type::Category targetTypeCategory = _targetType.category();
 
-	if (targetTypeCategory == Type::Category::Address)
-	{
-		convertType(_typeOnStack, IntegerType(160), _cleanupNeeded, _chopSignBits, _asPartOfArgumentDecoding);
-		return;
-	}
-
 	bool enumOverflowCheckPending = (targetTypeCategory == Type::Category::Enum || stackTypeCategory == Type::Category::Enum);
 	bool chopSignBitsPending = _chopSignBits && targetTypeCategory == Type::Category::Integer;
 	if (chopSignBitsPending)
@@ -651,11 +645,6 @@ void CompilerUtils::convertType(
 
 	switch (stackTypeCategory)
 	{
-	case Type::Category::Address:
-	{
-		convertType(IntegerType(160), _targetType, _cleanupNeeded, _chopSignBits, _asPartOfArgumentDecoding);
-		return;
-	}
 	case Type::Category::FixedBytes:
 	{
 		FixedBytesType const& typeOnStack = dynamic_cast<FixedBytesType const&>(_typeOnStack);
@@ -667,6 +656,12 @@ void CompilerUtils::convertType(
 			rightShiftNumberOnStack(256 - typeOnStack.numBytes() * 8);
 			if (targetIntegerType.numBits() < typeOnStack.numBytes() * 8)
 				convertType(IntegerType(typeOnStack.numBytes() * 8), _targetType, _cleanupNeeded);
+		}
+		else if (targetTypeCategory == Type::Category::Address)
+		{
+			rightShiftNumberOnStack(256 - typeOnStack.numBytes() * 8);
+			if (160 < typeOnStack.numBytes() * 8)
+				convertType(IntegerType(typeOnStack.numBytes() * 8), IntegerType(160), _cleanupNeeded);
 		}
 		else
 		{
@@ -701,13 +696,18 @@ void CompilerUtils::convertType(
 		break;
 	case Type::Category::FixedPoint:
 		solUnimplemented("Not yet implemented - FixedPointType.");
+	case Type::Category::Address:
 	case Type::Category::Integer:
 	case Type::Category::Contract:
 	case Type::Category::RationalNumber:
 		if (targetTypeCategory == Type::Category::FixedBytes)
 		{
-			solAssert(stackTypeCategory == Type::Category::Integer || stackTypeCategory == Type::Category::RationalNumber,
-				"Invalid conversion to FixedBytesType requested.");
+			solAssert(
+				stackTypeCategory == Type::Category::Address ||
+				stackTypeCategory == Type::Category::Integer ||
+				stackTypeCategory == Type::Category::RationalNumber,
+				"Invalid conversion to FixedBytesType requested."
+			);
 			// conversion from bytes to string. no need to clean the high bit
 			// only to shift left because of opposite alignment
 			FixedBytesType const& targetBytesType = dynamic_cast<FixedBytesType const&>(_targetType);
@@ -718,6 +718,7 @@ void CompilerUtils::convertType(
 		}
 		else if (targetTypeCategory == Type::Category::Enum)
 		{
+			solAssert(stackTypeCategory != Type::Category::Address, "Invalid conversion to EnumType requested.");
 			solAssert(_typeOnStack.mobileType(), "");
 			// just clean
 			convertType(_typeOnStack, *_typeOnStack.mobileType(), true);
@@ -744,7 +745,7 @@ void CompilerUtils::convertType(
 		}
 		else
 		{
-			solAssert(targetTypeCategory == Type::Category::Integer || targetTypeCategory == Type::Category::Contract, "");
+			solAssert(targetTypeCategory == Type::Category::Integer || targetTypeCategory == Type::Category::Contract || targetTypeCategory == Type::Category::Address, "");
 			IntegerType addressType(160);
 			IntegerType const& targetType = targetTypeCategory == Type::Category::Integer
 				? dynamic_cast<IntegerType const&>(_targetType) : addressType;
@@ -1007,7 +1008,7 @@ void CompilerUtils::convertType(
 			m_context << Instruction::ISZERO << Instruction::ISZERO;
 		break;
 	default:
-		if (stackTypeCategory == Type::Category::Function && targetTypeCategory == Type::Category::Integer)
+		if (stackTypeCategory == Type::Category::Function && targetTypeCategory == Type::Category::Address)
 		{
 			FunctionType const& typeOnStack = dynamic_cast<FunctionType const&>(_typeOnStack);
 			solAssert(typeOnStack.kind() == FunctionType::Kind::External, "Only external function type can be converted.");

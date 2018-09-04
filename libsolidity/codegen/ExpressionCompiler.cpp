@@ -1583,7 +1583,6 @@ void ExpressionCompiler::endVisit(Literal const& _literal)
 	{
 	case Type::Category::RationalNumber:
 	case Type::Category::Bool:
-	case Type::Category::Integer:
 	case Type::Category::Address:
 		m_context << type->literalValue(&_literal);
 		break;

@@ -187,9 +187,6 @@ string ABIFunctions::requestedFunctions()
 
 string ABIFunctions::cleanupFunction(Type const& _type, bool _revertOnFailure)
 {
-	if (_type.category() == Type::Category::Address)
-		return cleanupFunction(IntegerType(160), _revertOnFailure);
-
 	string functionName = string("cleanup_") + (_revertOnFailure ? "revert_" : "assert_") + _type.identifier();
 	return createFunction(functionName, [&]() {
 		Whiskers templ(R"(
@@ -201,7 +198,7 @@ string ABIFunctions::cleanupFunction(Type const& _type, bool _revertOnFailure)
 		switch (_type.category())
 		{
 		case Type::Category::Address:
-			solAssert(false, "");
+			templ("body", "cleaned := " + cleanupFunction(IntegerType(160)) + "(value)");
 			break;
 		case Type::Category::Integer:
 		{
@@ -273,10 +270,6 @@ string ABIFunctions::cleanupFunction(Type const& _type, bool _revertOnFailure)
 
 string ABIFunctions::conversionFunction(Type const& _from, Type const& _to)
 {
-	if (_from.category() == Type::Category::Address)
-		return conversionFunction(IntegerType(160), _to);
-	if (_to.category() == Type::Category::Address)
-		return conversionFunction(_from, IntegerType(160));
 	string functionName =
 		"convert_" +
 		_from.identifier() +
@@ -292,11 +285,13 @@ string ABIFunctions::conversionFunction(Type const& _from, Type const& _to)
 		string body;
 		auto toCategory = _to.category();
 		auto fromCategory = _from.category();
-		solAssert(toCategory != Type::Category::Address, "");
 		switch (fromCategory)
 		{
 		case Type::Category::Address:
-			solAssert(false, "");
+			body =
+				Whiskers("converted := <convert>(value)")
+					("convert", conversionFunction(IntegerType(160), _to))
+					.render();
 			break;
 		case Type::Category::Integer:
 		case Type::Category::RationalNumber:
@@ -328,9 +323,12 @@ string ABIFunctions::conversionFunction(Type const& _from, Type const& _to)
 					.render();
 			}
 			else if (toCategory == Type::Category::FixedPoint)
-			{
 				solUnimplemented("Not yet implemented - FixedPointType.");
-			}
+			else if (toCategory == Type::Category::Address)
+				body =
+					Whiskers("converted := <convert>(value)")
+						("convert", conversionFunction(_from, IntegerType(160)))
+						.render();
 			else
 			{
 				solAssert(
@@ -389,6 +387,11 @@ string ABIFunctions::conversionFunction(Type const& _from, Type const& _to)
 					("shift", shiftRightFunction(256 - from.numBytes() * 8))
 					("convert", conversionFunction(IntegerType(from.numBytes() * 8), _to))
 					.render();
+			else if (toCategory == Type::Category::Address)
+				body =
+					Whiskers("converted := <convert>(value)")
+						("convert", conversionFunction(_from, IntegerType(160)))
+						.render();
 			else
 			{
 				// clear for conversion to longer bytes
@@ -424,7 +427,7 @@ string ABIFunctions::conversionFunction(Type const& _from, Type const& _to)
 			solAssert(false, "");
 		}
 
-		solAssert(!body.empty(), "");
+		solAssert(!body.empty(), _from.canonicalName() + " to " + _to.canonicalName());
 		templ("body", body);
 		return templ.render();
 	});
