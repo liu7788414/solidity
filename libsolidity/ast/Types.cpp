@@ -439,18 +439,9 @@ MemberList::MemberMap Type::boundFunctions(Type const& _type, ContractDefinition
 	return members;
 }
 
-AddressType::AddressType()
-{
-}
-
 string AddressType::richIdentifier() const
 {
 	return "t_address";
-}
-
-bool AddressType::isImplicitlyConvertibleTo(Type const& _convertTo) const
-{
-	return _convertTo.category() == category();
 }
 
 bool AddressType::isExplicitlyConvertibleTo(Type const& _convertTo) const
@@ -458,14 +449,7 @@ bool AddressType::isExplicitlyConvertibleTo(Type const& _convertTo) const
 	return isImplicitlyConvertibleTo(_convertTo) ||
 		   _convertTo.category() == Category::Contract ||
 		   _convertTo.category() == Category::Integer ||
-		   _convertTo.category() == Category::Enum ||
-		   (_convertTo.category() == Category::FixedBytes && 160 == dynamic_cast<FixedBytesType const&>(_convertTo).numBytes() * 8) ||
-		   _convertTo.category() == Category::FixedPoint;
-}
-
-bool AddressType::operator==(Type const& _other) const
-{
-	return _other.category() == category();
+		   (_convertTo.category() == Category::FixedBytes && 160 == dynamic_cast<FixedBytesType const&>(_convertTo).numBytes() * 8);
 }
 
 string AddressType::toString(bool) const
@@ -488,14 +472,6 @@ TypePointer AddressType::unaryOperatorResult(Token::Value _operator) const
 
 TypePointer AddressType::binaryOperatorResult(Token::Value _operator, TypePointer const& _other) const
 {
-	if (
-		_other->category() != Category::RationalNumber &&
-		_other->category() != Category::FixedPoint &&
-		_other->category() != Category::Integer &&
-		_other->category() != category()
-	)
-		return TypePointer();
-
 	// Addresses can only be compared.
 	if (!Token::isCompareOp(_operator))
 		return TypePointer();
@@ -628,15 +604,12 @@ TypePointer IntegerType::binaryOperatorResult(Token::Value _operator, TypePointe
 	if (
 		_other->category() != Category::RationalNumber &&
 		_other->category() != Category::FixedPoint &&
-		_other->category() != Category::Address &&
 		_other->category() != category()
 	)
 		return TypePointer();
 	if (Token::isShiftOp(_operator))
 	{
 		// Shifts are not symmetric with respect to the type
-		if (_other->category() == Category::Address)
-			return TypePointer();
 		if (isValidShiftAndAmountType(_operator, *_other))
 			return shared_from_this();
 		else
@@ -654,9 +627,6 @@ TypePointer IntegerType::binaryOperatorResult(Token::Value _operator, TypePointe
 		return TypePointer();
 	if (auto intType = dynamic_pointer_cast<IntegerType const>(commonType))
 	{
-		// Nothing else can be done with addresses
-		if (_other->category() == Category::Address)
-			return TypePointer();
 		// Signed EXP is not allowed
 		if (Token::Exp == _operator && intType->isSigned())
 			return TypePointer();
@@ -697,8 +667,7 @@ bool FixedPointType::isImplicitlyConvertibleTo(Type const& _convertTo) const
 
 bool FixedPointType::isExplicitlyConvertibleTo(Type const& _convertTo) const
 {
-	return _convertTo.category() == category() ||
-		_convertTo.category() == Category::Integer;
+	return _convertTo.category() == category() || _convertTo.category() == Category::Integer;
 }
 
 TypePointer FixedPointType::unaryOperatorResult(Token::Value _operator) const
@@ -1405,6 +1374,7 @@ bool FixedBytesType::isImplicitlyConvertibleTo(Type const& _convertTo) const
 bool FixedBytesType::isExplicitlyConvertibleTo(Type const& _convertTo) const
 {
 	return (_convertTo.category() == Category::Integer && numBytes() * 8 == dynamic_cast<IntegerType const&>(_convertTo).numBits()) ||
+		(_convertTo.category() == Category::Address && numBytes() == 20) ||
 		_convertTo.category() == Category::FixedPoint ||
 		_convertTo.category() == category();
 }
@@ -1506,9 +1476,7 @@ bool ContractType::isImplicitlyConvertibleTo(Type const& _convertTo) const
 
 bool ContractType::isExplicitlyConvertibleTo(Type const& _convertTo) const
 {
-	return
-		isImplicitlyConvertibleTo(_convertTo) ||
-		_convertTo.category() == Category::Address;
+	return isImplicitlyConvertibleTo(_convertTo) || _convertTo.category() == Category::Address;
 }
 
 bool ContractType::isPayable() const

@@ -321,15 +321,14 @@ class AddressType: public Type
 public:
 	virtual Category category() const override { return Category::Address; }
 
-	explicit AddressType();
+	explicit AddressType()
+	{
+	}
 
 	virtual std::string richIdentifier() const override;
-	virtual bool isImplicitlyConvertibleTo(Type const& _convertTo) const override;
 	virtual bool isExplicitlyConvertibleTo(Type const& _convertTo) const override;
 	virtual TypePointer unaryOperatorResult(Token::Value _operator) const override;
 	virtual TypePointer binaryOperatorResult(Token::Value _operator, TypePointer const& _other) const override;
-
-	virtual bool operator==(Type const& _other) const override;
 
 	virtual unsigned calldataEncodedSize(bool _padded = true) const override { return _padded ? 32 : 160 / 8; }
 	virtual unsigned storageBytes() const override { return 160 / 8; }
