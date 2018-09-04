@@ -10,6 +10,7 @@ If something is missing here, please contact us on
 .. toctree::
    :maxdepth: 2
 
+   050-breaking-changes.rst
    layout-of-source-files.rst
    structure-of-a-contract.rst
    types.rst
